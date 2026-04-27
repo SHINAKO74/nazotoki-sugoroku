@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>すごろく×謎解き</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Mincho ProN","MS Mincho",serif;background:#F3EFE0;color:#1A1A1B;overflow:hidden;height:100vh;width:100vw;background-image:url('https://www.transparenttextures.com/patterns/washi.png')}
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
+#board{position:relative;width:min(90vw,90vh);height:min(90vw,90vh)}
+.ring1{position:absolute;border-radius:50%;border:1px solid rgba(191,157,94,0.2);top:8%;left:8%;width:84%;height:84%;pointer-events:none}
+.ring2{position:absolute;border-radius:50%;border:2px solid rgba(191,157,94,0.1);top:7%;left:7%;width:86%;height:86%;pointer-events:none}
+.sq{position:absolute;width:12%;height:12%;border-radius:50%;border:2px solid #1A1A1B;background:#F3EFE0;display:flex;align-items:center;justify-content:center;font-size:clamp(10px,3vmin,22px);font-weight:700;transform:translate(-50%,-50%);transition:transform .3s,border-color .3s,background .3s;cursor:default;z-index:5}
+.sq.visited{background:rgba(191,157,94,0.2);border-color:#BF9D5E;cursor:pointer;transition:transform .2s cubic-bezier(.34,1.56,.64,1),border-color .3s,background .3s}
+.sq.visited:hover{transform:translate(-50%,-50%) scale(1.25)}
+.sq.current{border:4px solid #8C1C13;box-shadow:0 0 0 4px rgba(191,157,94,0.3);z-index:10;transform:translate(-50%,-50%) scale(1.15)}
+.sq .badge{position:absolute;top:-4px;right:-4px;width:clamp(12px,3vmin,18px);height:clamp(12px,3vmin,18px);border-radius:50%;background:#BF9D5E;border:1px solid #1A1A1B;display:flex;align-items:center;justify-content:center;font-size:clamp(7px,1.5vmin,10px);color:#fff}
+#piece{position:absolute;z-index:20;width:8%;height:8%;min-width:22px;min-height:22px;border-radius:50%;background:#8C1C13;border:3px solid #BF9D5E;box-shadow:0 8px 30px rgba(0,0,0,.4);transform:translate(-50%,-50%) scale(1.1);transition:left .5s cubic-bezier(.34,1.56,.64,1),top .5s cubic-bezier(.34,1.56,.64,1);pointer-events:none;display:flex;align-items:center;justify-content:center}
+#path-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+#center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:65%;height:65%;border-radius:50%;background:rgba(255,255,255,.4);border:4px double #1A1A1B;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:clamp(8px,2.5vmin,16px);text-align:center;overflow:hidden;z-index:6}
+#riddle-img{width:80%;flex:1;min-height:0;object-fit:contain;border:3px solid #1A1A1B;background:#fff;padding:4px;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+#riddle-img:hover{transform:scale(1.08)}
+#answer-area{width:115%;display:flex;flex-direction:column;gap:clamp(2px,1vmin,6px);z-index:7}
+#answer-input{width:100%;padding:clamp(3px,0.8vmin,8px) clamp(4px,1.5vmin,10px);border:none;border-bottom:2px solid #1A1A1B;background:transparent;text-align:center;font-size:clamp(11px,3vmin,20px);font-family:inherit;outline:none}
+#submit-btn{width:100%;padding:clamp(3px,1vmin,8px);background:#1A1A1B;color:#F3EFE0;font-size:clamp(10px,2.5vmin,18px);letter-spacing:.2em;font-family:inherit;border:none;cursor:pointer;font-weight:700}
+#submit-btn:hover{background:#8C1C13}
+#move-info{display:none;flex-direction:column;align-items:center;gap:clamp(4px,1vmin,8px);padding:clamp(8px,2vmin,16px) 0}
+#move-num{font-size:clamp(18px,5vmin,40px);font-weight:700;color:#8C1C13}
+#move-dots{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.dot{width:clamp(5px,1.5vmin,8px);height:clamp(5px,1.5vmin,8px);border-radius:50%;background:#ddd;transition:background .3s}
+.dot.done{background:#BF9D5E}
+#feedback{position:absolute;bottom:6px;font-size:clamp(9px,1.8vmin,14px);transition:opacity .3s;opacity:0;pointer-events:none;white-space:nowrap}
+#feedback.show{opacity:1}
+#bloom{position:absolute;top:50%;left:50%;width:100%;height:100%;border-radius:50%;transform:translate(-50%,-50%) scale(0);background:#BF9D5E;opacity:0;pointer-events:none}
+#help-btn{position:fixed;top:clamp(10px,2vw,20px);right:clamp(10px,2vw,20px);z-index:100;width:clamp(36px,5vmin,44px);height:clamp(36px,5vmin,44px);border-radius:50%;background:#1A1A1B;color:#F3EFE0;border:3px solid #1A1A1B;font-size:clamp(16px,3vmin,22px);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-bg{position:fixed;inset:0;z-index:200;background:rgba(26,26,27,.8);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,24px)}
+.modal{background:#F3EFE0;width:100%;max-width:min(420px,92vw);padding:clamp(16px,4vw,32px);border:4px solid #8C1C13;position:relative;background-image:url('https://www.transparenttextures.com/patterns/washi.png')}
+.modal h2{font-size:clamp(15px,3vw,24px);color:#8C1C13;text-align:center;padding-bottom:12px;border-bottom:2px solid #BF9D5E;margin-bottom:16px}
+.modal ul{padding-left:20px;line-height:2;font-size:clamp(12px,2vw,16px)}
+.modal-close{position:absolute;top:12px;right:12px;background:none;border:none;font-size:clamp(20px,4vmin,28px);cursor:pointer;color:#8C1C13;line-height:1}
+.modal-action{width:100%;padding:clamp(8px,2vmin,12px);margin-top:clamp(10px,2vmin,20px);background:#8C1C13;color:#F3EFE0;border:none;font-size:clamp(12px,2.5vw,18px);letter-spacing:.2em;cursor:pointer;font-family:inherit;font-weight:700}
+.modal-action:hover{background:#1A1A1B}
+#clear-img,#hist-img,#extra-img{width:100%;max-height:clamp(120px,25vmin,180px);object-fit:contain;border:3px solid #BF9D5E;margin-bottom:12px;background:#fff;padding:4px}
+@keyframes bloom{from{transform:translate(-50%,-50%) scale(0);opacity:.7}to{transform:translate(-50%,-50%) scale(3);opacity:0}}
+@keyframes bounce{0%,100%{transform:translate(-50%,-50%) scale(1.1)}50%{transform:translate(-50%,-120%) scale(1.3)}}
+.blooming{animation:bloom .7s ease-out forwards}
+.bouncing{animation:bounce .45s ease}
+@keyframes goldShimmer{0%,100%{background-position:200% center}50%{background-position:-200% center}}
+#clear-title.shimmer{background:linear-gradient(90deg,#8C1C13 20%,#BF9D5E 50%,#8C1C13 80%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:goldShimmer 3s linear infinite}
+@keyframes bloodShimmer{0%,100%{background-position:200% center}50%{background-position:-200% center}}
+#extra-title.blood{background:linear-gradient(90deg,#3a0a18 0%,#8C1C13 40%,#c0392b 60%,#8C1C13 80%,#3a0a18 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:bloodShimmer 4s linear infinite}
+@keyframes moonPulse{0%,100%{filter:drop-shadow(0 0 12px rgba(140,28,19,0.6))}50%{filter:drop-shadow(0 0 32px rgba(192,57,43,0.9))}}
+#extra-moon.pulse{animation:moonPulse 2.5s ease-in-out infinite}
+/* スマホ縦向き */
+@media (max-width:480px){
+  #board{width:min(96vw,96vh);height:min(96vw,96vh)}
+  #center{padding:6px;gap:2px}
+  #answer-area{width:110%}
+  .sq{width:13%;height:13%}
+}
+/* スマホ横向き */
+@media (max-height:480px) and (orientation:landscape){
+  #board{width:min(88vw,88vh);height:min(88vw,88vh)}
+  #center{gap:2px;padding:6px}
+  #move-num{font-size:clamp(14px,4vmin,28px)}
+}
+/* タブレット */
+@media (min-width:481px) and (max-width:1024px){
+  #board{width:min(85vw,85vh);height:min(85vw,85vh)}
+}
+/* タッチデバイス：hoverを無効化 */
+@media (hover:none){
+  #riddle-img:hover{transform:none}
+  .sq.visited:hover{transform:translate(-50%,-50%) scale(1)}
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="board">
+    <div class="ring1"></div><div class="ring2"></div>
+    <svg id="path-svg"></svg>
+    <div id="piece"></div>
+    <div id="center">
+      <div id="bloom"></div>
+      <div id="square-label" style="font-size:clamp(16px,8vmin,52px);color:#8B5E1A;font-weight:700;line-height:1;flex-shrink:0">0</div>
+      <img id="riddle-img" src="" alt="謎"/>
+      <div id="answer-area">
+        <input id="answer-input" type="text" placeholder="答えを入力"/>
+        <button id="submit-btn">決定</button>
+      </div>
+      <div id="move-info">
+        <div id="move-num"></div>
+        <div id="move-dots"></div>
+      </div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+</div>
+<button id="help-btn">?</button>
+<div id="rules-modal" class="modal-bg" style="display:none">
+  <div id="rules-outer" style="position:relative;width:100%;max-width:440px;transform:scaleY(0);transform-origin:top center;transition:transform 0s">
+    <!-- 巻物上部 -->
+    <div style="width:100%;height:22px;background:linear-gradient(180deg,#3a2208,#8B5E1A,#c8962a,#8B5E1A,#3a2208);border-radius:14px 14px 0 0;box-shadow:0 -2px 8px rgba(0,0,0,.5)"></div>
+    <div id="rules-body" style="background:#F3EFE0;background-image:url('https://www.transparenttextures.com/patterns/washi.png');padding:32px 36px 28px;border-left:8px solid #8B5E1A;border-right:8px solid #8B5E1A;position:relative;clip-path:inset(0 0 100% 0);transition:clip-path 0s">
+      <!-- 四隅の家紋風装飾 -->
+      <div style="position:absolute;top:10px;left:12px;font-size:18px;opacity:0.25;line-height:1">✦</div>
+      <div style="position:absolute;top:10px;right:12px;font-size:18px;opacity:0.25;line-height:1">✦</div>
+      <div style="position:absolute;bottom:10px;left:12px;font-size:18px;opacity:0.25;line-height:1">✦</div>
+      <div style="position:absolute;bottom:10px;right:12px;font-size:18px;opacity:0.25;line-height:1">✦</div>
+      <!-- タイトル -->
+      <div style="text-align:center;margin-bottom:20px">
+        <div id="ri0" style="font-size:11px;letter-spacing:.5em;color:#8B5E1A;margin-bottom:6px;opacity:0;transition:opacity .4s">― 心 得 ―</div>
+        <h2 id="ri1" style="font-size:clamp(20px,4vw,26px);color:#1A1A1B;letter-spacing:.4em;margin:0;padding:0;border:none;opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s">すごろく謎</h2>
+        <div id="ri2" style="height:2px;background:linear-gradient(90deg,transparent,#BF9D5E,transparent);margin:10px auto 0;width:0%;transition:width .5s ease-out"></div>
+      </div>
+      <!-- ルール各項目 -->
+      <div style="display:flex;flex-direction:column;gap:14px;font-size:clamp(13px,2vw,15px);line-height:1.7">
+        <div id="ri3" style="display:flex;align-items:flex-start;gap:12px;opacity:0;transform:translateX(-12px);transition:opacity .4s,transform .4s">
+          <div style="min-width:32px;height:32px;border-radius:50%;background:#1A1A1B;color:#F3EFE0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;margin-top:2px">一</div>
+          <p style="margin:0">盤面は <strong>0〜9</strong> の 10 マス。「<strong style="color:#8C1C13">0</strong>」がふりだしじゃ。</p>
+        </div>
+        <div id="ri4" style="display:flex;align-items:flex-start;gap:12px;opacity:0;transform:translateX(-12px);transition:opacity .4s,transform .4s">
+          <div style="min-width:32px;height:32px;border-radius:50%;background:#1A1A1B;color:#F3EFE0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;margin-top:2px">二</div>
+          <p style="margin:0">各マスの謎を解くと、答えの<strong>文字数</strong>だけ進めるぞ。</p>
+        </div>
+        <div id="ri5" style="display:flex;align-items:flex-start;gap:12px;opacity:0;transform:translateX(-12px);transition:opacity .4s,transform .4s">
+          <div style="min-width:32px;height:32px;border-radius:50%;background:#1A1A1B;color:#F3EFE0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;margin-top:2px">三</div>
+          <p style="margin:0">解いたマスをクリックすると謎を<strong>再確認</strong>できるぞ。</p>
+        </div>
+        <div id="ri6" style="display:flex;align-items:flex-start;gap:12px;opacity:0;transform:translateX(-12px);transition:opacity .4s,transform .4s">
+          <div style="min-width:32px;height:32px;border-radius:50%;background:#8C1C13;color:#F3EFE0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;margin-top:2px">✦</div>
+          <p style="margin:0;color:#8C1C13;font-weight:700">ぴったり「0」に戻ればゲームクリアじゃ！</p>
+        </div>
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,transparent,#BF9D5E,transparent);margin:20px auto 0;width:60%"></div>
+      <button id="ri7" class="modal-action" onclick="closeModal('rules-modal')" style="margin-top:16px;letter-spacing:.5em;border:2px solid #BF9D5E;opacity:0;transition:opacity .4s">― 心 得 た ―</button>
+    </div>
+    <!-- 巻物下部 -->
+    <div style="width:100%;height:22px;background:linear-gradient(180deg,#3a2208,#8B5E1A,#c8962a,#8B5E1A,#3a2208);border-radius:0 0 14px 14px;box-shadow:0 4px 8px rgba(0,0,0,.5)"></div>
+  </div>
+</div>
+<div id="hist-modal" class="modal-bg" style="display:none">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('hist-modal')">✕</button>
+    <h2 id="hist-title">マス</h2>
+    <img id="hist-img" src="" alt="" style="transition:transform .2s cubic-bezier(.34,1.56,.64,1);cursor:zoom-in" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" onclick="zoomPreview(this.src)"/>
+    <p id="hist-ans" style="text-align:center;font-size:18px;color:#8C1C13;font-weight:700"></p>
+  </div>
+</div>
+<div id="preview-modal" class="modal-bg" style="display:none;background:rgba(26,26,27,.92);z-index:500" onclick="closeModal('preview-modal')">
+  <img id="preview-img" src="" style="max-width:90vw;max-height:90vh;object-fit:contain;border:4px solid #fff"/>
+</div>
+<canvas id="hanabi-canvas" style="position:fixed;inset:0;z-index:199;pointer-events:none;display:none"></canvas>
+<div id="clear-modal" class="modal-bg" style="display:none;background:rgba(10,5,2,.92)">
+  <div id="clear-inner" style="position:relative;width:100%;max-width:460px;text-align:center">
+    <!-- 巻物上部 -->
+    <div style="width:100%;height:18px;background:linear-gradient(180deg,#5a3a10,#8B5E1A,#5a3a10);border-radius:12px 12px 0 0;box-shadow:0 4px 12px rgba(0,0,0,.6)"></div>
+    <div id="clear-scroll" style="background:#F3EFE0;background-image:url('https://www.transparenttextures.com/patterns/washi.png');padding:36px 32px 28px;border-left:6px solid #8B5E1A;border-right:6px solid #8B5E1A;position:relative;overflow:hidden;clip-path:inset(0 0 100% 0);transition:clip-path 0s">
+      <!-- 印鑑装飾 -->
+      <div id="clear-seal" style="position:absolute;top:16px;right:20px;width:56px;height:56px;border:3px solid #8C1C13;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:0;transform:rotate(-12deg);transition:opacity .3s">
+        <span style="font-size:10px;color:#8C1C13;font-weight:900;letter-spacing:2px;line-height:1.3;text-align:center">謎<br>解<br>了</span>
+      </div>
+      <!-- タイトル -->
+      <div id="clear-kamon" style="font-size:48px;margin-bottom:4px;opacity:0;transform:scale(0.3);transition:opacity .5s,transform .5s">⛩</div>
+      <h2 id="clear-title" style="font-size:clamp(28px,6vw,42px);color:#8C1C13;letter-spacing:.4em;margin-bottom:4px;text-shadow:2px 2px 0 rgba(191,157,94,0.4);opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s">完　結</h2>
+      <div id="clear-line" style="height:2px;background:linear-gradient(90deg,transparent,#BF9D5E,transparent);margin:12px auto;width:0%;transition:width .6s ease-out"></div>
+      <p id="clear-sub" style="font-size:15px;color:#5a3a10;letter-spacing:.15em;margin-bottom:16px;opacity:0;transition:opacity .5s">「ふりだし」へお帰りなさい。</p>
+      <img id="clear-img" src="" alt="" style="width:100%;max-height:160px;object-fit:contain;border:3px solid #BF9D5E;background:#fff;padding:4px;margin-bottom:16px;opacity:0;transition:opacity .5s,transform .2s cubic-bezier(.34,1.56,.64,1);cursor:zoom-in" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" onclick="zoomPreview(this.src)"/>
+      <!-- タイム表示 -->
+      <div id="clear-time-box" style="border:2px solid #BF9D5E;padding:12px 20px;margin-bottom:20px;background:rgba(191,157,94,0.08);opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s">
+        <div style="font-size:11px;letter-spacing:.3em;color:#8B5E1A;margin-bottom:4px">CLEAR TIME</div>
+        <div id="clear-time" style="font-size:clamp(16px,4vw,28px);font-weight:900;color:#1A1A1B;letter-spacing:.05em;white-space:nowrap"></div>
+      </div>
+      <button class="modal-action" onclick="closeModal('clear-modal')" style="letter-spacing:.4em;border:2px solid #BF9D5E;opacity:0;transition:opacity .5s">— 戻る —</button>
+    </div>
+    <!-- 巻物下部 -->
+    <div style="width:100%;height:18px;background:linear-gradient(180deg,#5a3a10,#8B5E1A,#5a3a10);border-radius:0 0 12px 12px;box-shadow:0 4px 12px rgba(0,0,0,.6)"></div>
+  </div>
+</div>
+<canvas id="ember-canvas" style="position:fixed;inset:0;z-index:299;pointer-events:none;display:none"></canvas>
+<div id="extra-modal" class="modal-bg" style="display:none;background:rgba(20,10,15,.85);z-index:300">
+  <div id="extra-inner" style="position:relative;width:100%;max-width:440px;text-align:center">
+    <!-- 上部装飾 -->
+    <div style="width:100%;height:14px;background:linear-gradient(90deg,#2a1018,#6b2030,#a03050,#6b2030,#2a1018);border-radius:8px 8px 0 0"></div>
+    <div id="extra-scroll" style="background:#2a1018;background-image:url('https://www.transparenttextures.com/patterns/washi.png');padding:36px 32px 28px;border-left:4px solid #8C1C13;border-right:4px solid #8C1C13;position:relative;overflow:hidden;clip-path:inset(0 0 100% 0);transition:clip-path 0s">
+      <!-- 背景の円 -->
+      <div id="extra-circle" style="position:absolute;top:50%;left:50%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(140,28,19,0.25) 0%,transparent 70%);transform:translate(-50%,-50%) scale(0);transition:transform 1.2s ease-out;pointer-events:none"></div>
+      <!-- 真の印 -->
+      <div id="extra-seal" style="position:absolute;top:14px;left:20px;width:52px;height:52px;border:2px solid #f0a0b0;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:0;transform:rotate(8deg)">
+        <span style="font-size:9px;color:#f0a0b0;font-weight:900;letter-spacing:2px;line-height:1.4;text-align:center">真<br>解<br>了</span>
+      </div>
+      
+      <h2 id="extra-title" style="font-size:clamp(24px,5.5vw,38px);color:#f0a0b0;letter-spacing:.5em;margin-bottom:6px;opacity:0;transform:translateY(16px);transition:opacity .6s,transform .6s;text-shadow:0 0 20px rgba(192,64,96,0.6)">真・完結</h2>
+      <div id="extra-line" style="height:1px;background:linear-gradient(90deg,transparent,#f0a0b0,transparent);margin:10px auto;width:0%;transition:width .8s ease-out"></div>
+      <p id="extra-sub" style="font-size:13px;color:#f0d0d8;letter-spacing:.2em;line-height:1.9;margin-bottom:16px;opacity:0;transition:opacity .8s">全ての謎、そして<br>「<span style="color:#BF9D5E">回帰</span>」の真髄を見抜きました。</p>
+      <img id="extra-img" src="" alt="" style="width:100%;max-height:160px;object-fit:contain;border:2px solid #f0a0b0;background:#1a0810;padding:4px;margin-bottom:20px;opacity:0;transition:opacity .8s,transform .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 30px rgba(192,64,96,0.4);cursor:zoom-in" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" onclick="zoomPreview(this.src)"/>
+      <p id="extra-reveal" style="font-size:11px;color:#f0a0b0;letter-spacing:.35em;margin-bottom:20px;opacity:0;transition:opacity .8s">— T R U E  E N D I N G —</p>
+      <button class="modal-action" onclick="closeExtra()" style="background:#3a1020;border:1px solid #f0a0b0;color:#f0a0b0;letter-spacing:.4em;opacity:0;transition:opacity .5s,background .3s">— 最初から —</button>
+    </div>
+    <div style="width:100%;height:14px;background:linear-gradient(90deg,#2a1018,#6b2030,#a03050,#6b2030,#2a1018);border-radius:0 0 8px 8px"></div>
+  </div>
+</div>
+<script>
+// ★ 画像URLをここに設定してください（マス0〜9の順）
+const IMGS = [
+  'img00.png', // マス0
+  'img01.png', // マス1
+  'img02.png', // マス2
+  'img03.png', // マス3
+  'img04.png', // マス4
+  'img05.png', // マス5
+  'img06.png', // マス6
+  'img07.png', // マス7
+  'img08.png', // マス8
+  'img09.png', // マス9
+  'clear.png',       // 通常クリア画像
+  'true_clear.png',  // 真クリア画像
+];
+
+const SQUARES=[
+  {id:0,answer:"かいし",  image:IMGS[0]},
+  {id:1,answer:"いしき",  image:IMGS[1]},
+  {id:2,answer:"-",       image:IMGS[2],isDummy:true},
+  {id:3,answer:"きた",    image:IMGS[3]},
+  {id:4,answer:"たから",  image:IMGS[4]},
+  {id:5,answer:"からくり",image:IMGS[5]},
+  {id:6,answer:"-",       image:IMGS[6],isDummy:true},
+  {id:7,answer:"くりあ",  image:IMGS[7]},
+  {id:8,answer:"-",       image:IMGS[8],isDummy:true},
+  {id:9,answer:"あか",    image:IMGS[9]},
+];
+const R=42;
+let pos=0,moving=false,hist=new Set(),pathArr=[0],total=0,cleared=false,t0=null;
+function coords(p){const a=(p*36-90)*Math.PI/180;return{x:50+R*Math.cos(a),y:50+R*Math.sin(a)};}
+function norm(s){return s.replace(/\s+/g,'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[ァ-ン]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).toLowerCase();}
+const board=document.getElementById('board');
+SQUARES.forEach(sq=>{
+  const {x,y}=coords(sq.id);
+  const el=document.createElement('div');
+  el.className='sq'+(sq.id===0?' current':'');
+  el.id='sq'+sq.id;
+  el.style.left=x+'%';el.style.top=y+'%';
+  el.textContent=sq.id;
+  el.addEventListener('click',()=>{
+    if(hist.has(sq.id)&&sq.id!==pos){
+      document.getElementById('hist-title').textContent='マス '+sq.id;
+      document.getElementById('hist-img').src=sq.image;
+      document.getElementById('hist-ans').textContent='答え：'+sq.answer;
+      openModal('hist-modal');
+    }
+  });
+  board.appendChild(el);
+});
+function repaint(){
+  SQUARES.forEach(sq=>{
+    const el=document.getElementById('sq'+sq.id);
+    el.className='sq'+(hist.has(sq.id)?' visited':'')+(sq.id===pos?' current':'');
+    const old=el.querySelector('.badge');if(old)old.remove();
+    if(hist.has(sq.id)){const b=document.createElement('div');b.className='badge';b.textContent='✓';el.appendChild(b);}
+  });
+  document.getElementById('square-label').textContent=pos;
+  document.getElementById('riddle-img').src=SQUARES[pos].image;
+  const {x,y}=coords(pos);
+  const piece=document.getElementById('piece');
+  piece.style.left=x+'%';piece.style.top=y+'%';
+}
+function drawPath(upTo){
+  // upTo: 何本目まで静的に描くか（省略時は全部）
+  const svg=document.getElementById('path-svg');svg.innerHTML='';
+  const end=(upTo===undefined?pathArr.length-1:upTo);
+  for(let i=0;i<end;i++){
+    const {x:x1,y:y1}=coords(pathArr[i]),{x:x2,y:y2}=coords(pathArr[i+1]);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1+'%');line.setAttribute('y1',y1+'%');
+    line.setAttribute('x2',x2+'%');line.setAttribute('y2',y2+'%');
+    line.setAttribute('stroke','#BF9D5E');line.setAttribute('stroke-width','4');
+    line.setAttribute('stroke-dasharray','8,4');line.setAttribute('stroke-linecap','round');
+    line.setAttribute('opacity','0.5');
+    svg.appendChild(line);
+  }
+}
+function animateLastLine(){
+  if(pathArr.length<2)return;
+  const from=pathArr[pathArr.length-2],to=pathArr[pathArr.length-1];
+  const {x:x1,y:y1}=coords(from),{x:x2,y:y2}=coords(to);
+  const board=document.getElementById('board');
+  const bw=board.offsetWidth,bh=board.offsetHeight;
+  const px1=x1/100*bw,py1=y1/100*bh,px2=x2/100*bw,py2=y2/100*bh;
+  const len=Math.ceil(Math.sqrt((px2-px1)**2+(py2-py1)**2));
+  const svg=document.getElementById('path-svg');
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',x1+'%');line.setAttribute('y1',y1+'%');
+  line.setAttribute('x2',x2+'%');line.setAttribute('y2',y2+'%');
+  line.setAttribute('stroke','#BF9D5E');line.setAttribute('stroke-width','4');
+  line.setAttribute('stroke-dasharray',len+' '+len);
+  line.setAttribute('stroke-dashoffset',len);
+  line.setAttribute('stroke-linecap','round');
+  line.setAttribute('opacity','0.5');
+  line.style.transition='stroke-dashoffset 0.55s cubic-bezier(.4,0,.2,1)';
+  svg.appendChild(line);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    line.setAttribute('stroke-dashoffset','0');
+    setTimeout(()=>{
+      line.setAttribute('stroke-dasharray','8,4');
+      line.removeAttribute('stroke-dashoffset');
+    },560);
+  }));
+}
+async function moveSteps(steps){
+  moving=true;
+  const mi=document.getElementById('move-info'),ma=document.getElementById('answer-area');
+  const mn=document.getElementById('move-num'),md=document.getElementById('move-dots');
+  ma.style.display='none';mi.style.display='flex';
+  md.innerHTML=Array.from({length:steps},(_,i)=>'<div class="dot" id="d'+i+'"></div>').join('');
+  mn.textContent='0 / '+steps+'文字';
+  for(let i=0;i<steps;i++){
+    await new Promise(r=>setTimeout(r,500));
+    pos=(pos+1)%10;se('move',i);
+    mn.textContent=(i+1)+' / '+steps+'文字';
+    const d=document.getElementById('d'+i);if(d)d.classList.add('done');
+    repaint();
+    const piece=document.getElementById('piece');
+    piece.classList.remove('bouncing');void piece.offsetWidth;piece.classList.add('bouncing');
+  }
+  await new Promise(r=>setTimeout(r,300));
+  mi.style.display='none';ma.style.display='flex';
+  moving=false;
+}
+function feedback(msg,color){
+  const fb=document.getElementById('feedback');
+  fb.textContent=msg;fb.style.color=color;fb.classList.add('show');
+  setTimeout(()=>fb.classList.remove('show'),2000);
+}
+function bloom(){
+  const b=document.getElementById('bloom');
+  b.classList.remove('blooming');void b.offsetWidth;b.classList.add('blooming');
+  setTimeout(()=>b.classList.remove('blooming'),800);
+}
+async function submit(){
+  if(moving)return;
+  const sq=SQUARES[pos];
+  const raw=document.getElementById('answer-input').value;
+  const inp=norm(raw);
+  if(inp==='かいき'&&pos===0&&cleared){
+    document.getElementById('extra-img').src=IMGS[11];
+    openModal('extra-modal');
+    document.getElementById('answer-input').value='';
+    return;
+  }
+  if(inp===sq.answer||(sq.isDummy&&inp.length>0)){
+    if(!t0)t0=Date.now();
+    const mc=inp.length,nt=total+mc;
+    bloom();hist.add(pos);se('correct');
+    document.getElementById('answer-input').value='';
+    pathArr.push((pos+mc)%10);
+    await moveSteps(mc);
+    total=nt;drawPath(pathArr.length-2);animateLastLine();
+    if(pos===0&&nt>=20){
+      const e=Date.now()-t0,m=Math.floor(e/60000),s=Math.floor((e%60000)/1000);
+      document.getElementById('clear-img').src=IMGS[10];
+      document.getElementById('clear-time').textContent='クリアタイム：'+m+'分'+s+'秒';
+      cleared=true;
+      setTimeout(()=>openModal('clear-modal'),1200);
+    }
+  }else{
+    se('wrong');feedback('答えが違います...','#8C1C13');
+  }
+}
+function openModal(id){
+  document.getElementById(id).style.display='flex';
+  if(id==='clear-modal'){animateClear();se('clear');}
+  if(id==='extra-modal'){animateExtra();se('clear');}
+  if(id==='rules-modal') animateRules();
+}
+function closeModal(id){
+  document.getElementById(id).style.display='none';
+  if(id==='clear-modal') stopHanabi();
+  if(id==='extra-modal'){stopEmber();location.reload();}
+}
+
+/* ══════════════════════════════
+   SE (Web Audio API)
+══════════════════════════════ */
+const AC=new(window.AudioContext||window.webkitAudioContext)();
+function se(type,...args){
+  try{
+    const g=AC.createGain();g.connect(AC.destination);
+    if(type==='scroll'){
+      // 紙を広げるような低いザザッ音
+      const buf=AC.createBuffer(1,AC.sampleRate*.4,AC.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5)*.6;
+      const s=AC.createBufferSource();s.buffer=buf;
+      const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=600;
+      s.connect(f);f.connect(g);
+      g.gain.setValueAtTime(.7,AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.4);
+      s.start();
+    }else if(type==='correct'){
+      // 正解の明るいチャイム
+      [0,4,7].forEach((semi,i)=>{
+        const o=AC.createOscillator();const og=AC.createGain();
+        o.connect(og);og.connect(AC.destination);
+        o.frequency.value=440*Math.pow(2,semi/12);
+        o.type='sine';
+        og.gain.setValueAtTime(0,AC.currentTime+i*.08);
+        og.gain.linearRampToValueAtTime(.3,AC.currentTime+i*.08+.02);
+        og.gain.exponentialRampToValueAtTime(.001,AC.currentTime+i*.08+.5);
+        o.start(AC.currentTime+i*.08);o.stop(AC.currentTime+i*.08+.6);
+      });
+    }else if(type==='wrong'){
+      // 不正解のブザー
+      const o=AC.createOscillator();
+      o.type='sawtooth';o.frequency.value=160;
+      o.connect(g);
+      g.gain.setValueAtTime(.25,AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.35);
+      o.start();o.stop(AC.currentTime+.35);
+    }else if(type==='move'){
+      // コマ移動のコツン音
+      const o=AC.createOscillator();
+      o.type='sine';o.frequency.value=300+args[0]*40;
+      o.connect(g);
+      g.gain.setValueAtTime(.2,AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.12);
+      o.start();o.stop(AC.currentTime+.15);
+    }else if(type==='stamp'){
+      // 印鑑バン
+      const buf=AC.createBuffer(1,AC.sampleRate*.15,AC.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3);
+      const s=AC.createBufferSource();s.buffer=buf;
+      s.connect(g);
+      g.gain.setValueAtTime(.8,AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.15);
+      s.start();
+    }else if(type==='clear'){
+      // クリアのファンファーレ
+      [[0,.0],[7,.12],[12,.24],[7,.36],[12,.48],[16,.6]].forEach(([semi,t])=>{
+        const o=AC.createOscillator();const og=AC.createGain();
+        o.connect(og);og.connect(AC.destination);
+        o.frequency.value=523.25*Math.pow(2,semi/12);
+        o.type='triangle';
+        og.gain.setValueAtTime(0,AC.currentTime+t);
+        og.gain.linearRampToValueAtTime(.35,AC.currentTime+t+.05);
+        og.gain.exponentialRampToValueAtTime(.001,AC.currentTime+t+.6);
+        o.start(AC.currentTime+t);o.stop(AC.currentTime+t+.7);
+      });
+    }
+  }catch(e){}
+}
+
+/* ══════════════════════════════
+   巻物展開アニメーション（ルール）
+══════════════════════════════ */
+function animateRules(){
+  const outer=document.getElementById('rules-outer');
+  const body=document.getElementById('rules-body');
+  // リセット
+  outer.style.transition='transform 0s';outer.style.transform='scaleY(0)';
+  body.style.transition='clip-path 0s';body.style.clipPath='inset(0 0 100% 0)';
+  document.getElementById('ri2').style.width='0%';
+  ['ri0','ri1','ri3','ri4','ri5','ri6','ri7'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.opacity='0';
+    if(id!=='ri0'&&id!=='ri7') el.style.transform='translateX(-12px)';
+    if(id==='ri1') el.style.transform='translateY(10px)';
+  });
+  // SE：紙を広げる音
+  se('scroll');
+  // 外枠がスッと伸びる
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    outer.style.transition='transform .55s cubic-bezier(.22,.61,.36,1)';
+    outer.style.transform='scaleY(1)';
+  }));
+  // 中身が展開
+  setTimeout(()=>{
+    body.style.transition='clip-path .65s cubic-bezier(.22,.61,.36,1)';
+    body.style.clipPath='inset(0 0 0% 0)';
+  },200);
+  // 各アイテムを順番に表示
+  const delays=[700,900,1050,1200,1380,1540,1700,1900];
+  ['ri0','ri1','ri2','ri3','ri4','ri5','ri6','ri7'].forEach((id,i)=>{
+    setTimeout(()=>{
+      const el=document.getElementById(id);
+      el.style.opacity='1';
+      if(id==='ri1') el.style.transform='translateY(0)';
+      if(['ri3','ri4','ri5','ri6'].includes(id)) el.style.transform='translateX(0)';
+      if(id==='ri2') el.style.width='80%';
+    },delays[i]);
+  });
+}
+let emberRAF=null,eParticles=[];
+function stopEmber(){
+  cancelAnimationFrame(emberRAF);eParticles=[];
+  const c=document.getElementById('ember-canvas');
+  c.style.display='none';
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+function startEmber(){
+  const c=document.getElementById('ember-canvas');
+  c.style.display='block';c.width=window.innerWidth;c.height=window.innerHeight;
+  const ctx=c.getContext('2d');
+  function spawnEmber(){
+    eParticles.push({
+      x:Math.random()*c.width,y:c.height+10,
+      vx:(Math.random()-.5)*.6,vy:-(0.4+Math.random()*1.2),
+      life:1,decay:.003+Math.random()*.005,
+      r:1+Math.random()*3,
+      color:['#8C1C13','#c0392b','#BF9D5E','#e8c870','#ff6b35'][Math.floor(Math.random()*5)]
+    });
+  }
+  let last=0;
+  function tick(t){
+    ctx.clearRect(0,0,c.width,c.height);
+    if(t-last>80){spawnEmber();if(Math.random()<.3)spawnEmber();last=t;}
+    eParticles=eParticles.filter(p=>{
+      p.x+=p.vx+(Math.sin(t*.001+p.y)*.3);p.y+=p.vy;p.life-=p.decay;
+      ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0,p.r*p.life),0,Math.PI*2);
+      ctx.fillStyle=p.color+Math.floor(p.life*200).toString(16).padStart(2,'0');
+      ctx.fill();
+      return p.life>0&&p.y>-20;
+    });
+    emberRAF=requestAnimationFrame(tick);
+  }
+  emberRAF=requestAnimationFrame(tick);
+}
+function closeExtra(){stopEmber();document.getElementById('extra-modal').style.display='none';location.reload();}
+
+function animateExtra(){
+  startEmber();
+  const scroll=document.getElementById('extra-scroll');
+  const title=document.getElementById('extra-title');
+  const line=document.getElementById('extra-line');
+  const sub=document.getElementById('extra-sub');
+  const img=document.getElementById('extra-img');
+  const reveal=document.getElementById('extra-reveal');
+  const btn=document.querySelector('#extra-modal .modal-action');
+  const seal=document.getElementById('extra-seal');
+  const circle=document.getElementById('extra-circle');
+  [title,sub,img,reveal,btn,seal].forEach(el=>el.style.opacity='0');
+  title.classList.remove('blood');
+  line.style.width='0%';
+  scroll.style.transition='clip-path 0s';scroll.style.clipPath='inset(0 0 100% 0)';
+  // 巻物
+  setTimeout(()=>{scroll.style.transition='clip-path 1s cubic-bezier(.22,.61,.36,1)';scroll.style.clipPath='inset(0 0 0% 0)';},300);
+  // 背景円
+  setTimeout(()=>circle.style.transform='translate(-50%,-50%) scale(1)',500);
+  // タイトル
+  setTimeout(()=>{title.style.opacity='1';title.style.transform='translateY(0)';},1000);
+  // 赤線
+  setTimeout(()=>line.style.width='70%',1200);
+  // サブ
+  setTimeout(()=>sub.style.opacity='1',1700);
+  // 画像
+  setTimeout(()=>img.style.opacity='1',2100);
+  // TRUE ENDING
+  setTimeout(()=>reveal.style.opacity='1',2500);
+  // 印鑑
+  setTimeout(()=>{seal.style.animation='none';void seal.offsetWidth;seal.style.animation='stampIn .4s cubic-bezier(.36,.07,.19,.97) forwards';seal.style.opacity='1';se('stamp');},2800);
+  // ボタン
+  setTimeout(()=>btn.style.opacity='1',3100);
+}
+let hanabiRAF=null,hParticles=[];
+function stopHanabi(){
+  cancelAnimationFrame(hanabiRAF);hParticles=[];
+  const c=document.getElementById('hanabi-canvas');
+  c.style.display='none';
+  const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
+}
+function startHanabi(){
+  const c=document.getElementById('hanabi-canvas');
+  c.style.display='block';
+  c.width=window.innerWidth;c.height=window.innerHeight;
+  const ctx=c.getContext('2d');
+  const COLORS=['#BF9D5E','#8C1C13','#F3EFE0','#e8c870','#d4624a','#fff8e1','#c0392b','#f39c12'];
+  function burst(x,y){
+    const n=60+Math.random()*40;
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2,spd=2+Math.random()*5;
+      hParticles.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:1,decay:.012+Math.random()*.018,r:2+Math.random()*3,color:COLORS[Math.floor(Math.random()*COLORS.length)],trail:[]});
+    }
+  }
+  let lastBurst=0;
+  function tick(t){
+    ctx.clearRect(0,0,c.width,c.height);
+    if(t-lastBurst>600){
+      burst(c.width*.2+Math.random()*c.width*.6, c.height*.15+Math.random()*c.height*.45);
+      lastBurst=t;
+    }
+    hParticles=hParticles.filter(p=>{
+      p.trail.push({x:p.x,y:p.y,life:p.life});
+      if(p.trail.length>8)p.trail.shift();
+      p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.vx*=.98;p.life-=p.decay;
+      for(let i=0;i<p.trail.length;i++){
+        const tl=p.trail[i];
+        ctx.beginPath();ctx.arc(tl.x,tl.y,Math.max(0,p.r*(i/p.trail.length)),0,Math.PI*2);
+        ctx.fillStyle=p.color+Math.floor(tl.life*80).toString(16).padStart(2,'0');
+        ctx.fill();
+      }
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.color+Math.floor(p.life*255).toString(16).padStart(2,'0');
+      ctx.fill();
+      return p.life>0;
+    });
+    hanabiRAF=requestAnimationFrame(tick);
+  }
+  hanabiRAF=requestAnimationFrame(tick);
+}
+
+/* ── クリア演出シーケンス ── */
+function animateClear(){
+  startHanabi();
+  const scroll=document.getElementById('clear-scroll');
+  const kamon=document.getElementById('clear-kamon');
+  const title=document.getElementById('clear-title');
+  const line=document.getElementById('clear-line');
+  const sub=document.getElementById('clear-sub');
+  const img=document.getElementById('clear-img');
+  const tbox=document.getElementById('clear-time-box');
+  const btn=document.querySelector('#clear-modal .modal-action');
+  const seal=document.getElementById('clear-seal');
+  // reset
+  [kamon,title,sub,img,tbox,btn,seal].forEach(el=>{el.style.opacity='0';el.style.transform=el.dataset.t0||el.style.transform});
+  title.classList.remove('shimmer');
+  line.style.width='0%';
+  scroll.style.transition='clip-path 0s';
+  scroll.style.clipPath='inset(0 0 100% 0)';
+  // 巻物展開
+  setTimeout(()=>{
+    scroll.style.transition='clip-path .7s cubic-bezier(.22,.61,.36,1)';
+    scroll.style.clipPath='inset(0 0 0% 0)';
+  },200);
+  // 鳥居
+  setTimeout(()=>{kamon.style.opacity='1';kamon.style.transform='scale(1)';},700);
+  // タイトル
+  setTimeout(()=>{title.style.opacity='1';title.style.transform='translateY(0)';},1000);
+  // シマー
+  setTimeout(()=>title.classList.add('shimmer'),1400);
+  // 金線
+  setTimeout(()=>line.style.width='80%',1200);
+  // サブ
+  setTimeout(()=>{sub.style.opacity='1';},1500);
+  // 画像
+  setTimeout(()=>{img.style.opacity='1';},1800);
+  // タイムボックス
+  setTimeout(()=>{tbox.style.opacity='1';tbox.style.transform='translateY(0)';},2100);
+  // 印鑑ドン！
+  setTimeout(()=>{
+    seal.style.animation='none';void seal.offsetWidth;
+    seal.style.animation='stampIn .4s cubic-bezier(.36,.07,.19,.97) forwards';
+    seal.style.opacity='1';se('stamp');
+  },2500);
+  // ボタン
+  setTimeout(()=>{btn.style.opacity='1';},2800);
+}
+function zoomPreview(src){
+  document.getElementById('preview-img').src=src;
+  openModal('preview-modal');
+}
+document.getElementById('submit-btn').addEventListener('click',submit);
+document.getElementById('answer-input').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+document.getElementById('help-btn').addEventListener('click',()=>openModal('rules-modal'));
+document.getElementById('riddle-img').addEventListener('click',()=>{
+  if(moving)return;
+  document.getElementById('preview-img').src=SQUARES[pos].image;
+  openModal('preview-modal');
+});
+repaint();drawPath();openModal('rules-modal');
+</script>
+</body>
+</html>
