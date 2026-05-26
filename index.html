@@ -131,7 +131,7 @@ body{font-family:"Hiragino Mincho ProN","MS Mincho",serif;background:#F3EFE0;col
         </div>
         <div id="ri6" style="display:flex;align-items:flex-start;gap:12px;opacity:0;transform:translateX(-12px);transition:opacity .4s,transform .4s">
           <div style="min-width:32px;height:32px;border-radius:50%;background:#8C1C13;color:#F3EFE0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;margin-top:2px">✦</div>
-          <p style="margin:0;color:#8C1C13;font-weight:700">ぴったり「0」に戻ればゲームクリアじゃ！</p>
+          <p style="margin:0;color:#8C1C13;font-weight:700">ぴったり「0」に戻ればゲームクリアじゃ！<br><span style="font-size:0.9em;font-weight:400;color:#5a3a10">全てのマスに止まる必要はないぞ。</span></p>
         </div>
       </div>
       <div style="height:1px;background:linear-gradient(90deg,transparent,#BF9D5E,transparent);margin:20px auto 0;width:60%"></div>
@@ -263,6 +263,12 @@ function repaint(){
   });
   document.getElementById('square-label').textContent=pos;
   document.getElementById('riddle-img').src=SQUARES[pos].image;
+  const input=document.getElementById('answer-input');
+  if(hist.has(pos)&&!SQUARES[pos].isDummy){
+    input.value=SQUARES[pos].answer;
+  }else{
+    input.value='';
+  }
   const {x,y}=coords(pos);
   const piece=document.getElementById('piece');
   piece.style.left=x+'%';piece.style.top=y+'%';
