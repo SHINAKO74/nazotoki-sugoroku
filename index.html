@@ -288,6 +288,23 @@ function drawPath(upTo){
     svg.appendChild(line);
   }
 }
+function allFloat(){
+  SQUARES.forEach((sq,i)=>{
+    setTimeout(()=>{
+      const {x,y}=coords(sq.id);
+      const board=document.getElementById('board');
+      const float=document.createElement('div');
+      float.textContent=SQ_CHAR[sq.id];
+      float.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:clamp(18px,6vmin,40px);font-weight:900;color:#8C1C13;pointer-events:none;z-index:50;opacity:1;transition:opacity 1.8s ease-out,transform 1.8s ease-out;`;
+      board.appendChild(float);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        float.style.opacity='0';
+        float.style.transform=`translate(-50%,-280%)`;
+      }));
+      setTimeout(()=>float.remove(),1900);
+    },i*80);
+  });
+}
 function animateLastLine(){
   if(pathArr.length<2)return;
   const from=pathArr[pathArr.length-2],to=pathArr[pathArr.length-1];
@@ -323,7 +340,7 @@ async function moveSteps(steps){
   md.innerHTML=Array.from({length:steps},(_,i)=>'<div class="dot" id="d'+i+'"></div>').join('');
   mn.textContent='0 / '+steps+'文字';
   for(let i=0;i<steps;i++){
-    await new Promise(r=>setTimeout(r,500));
+    await new Promise(r=>setTimeout(r,800));
     pos=(pos+1)%10;se('move',i);
     mn.textContent=(i+1)+' / '+steps+'文字';
     const d=document.getElementById('d'+i);if(d)d.classList.add('done');
@@ -333,13 +350,13 @@ async function moveSteps(steps){
     const board=document.getElementById('board');
     const float=document.createElement('div');
     float.textContent=SQ_CHAR[pos];
-    float.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:clamp(18px,6vmin,40px);font-weight:900;color:#8C1C13;pointer-events:none;z-index:50;opacity:1;transition:opacity 1.2s ease-out,transform 1.2s ease-out;`;
+    float.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:clamp(18px,6vmin,40px);font-weight:900;color:#8C1C13;pointer-events:none;z-index:50;opacity:1;transition:opacity 1.5s ease-out,transform 1.5s ease-out;`;
     board.appendChild(float);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       float.style.opacity='0';
       float.style.transform=`translate(-50%,-220%)`;
     }));
-    setTimeout(()=>float.remove(),1300);
+    setTimeout(()=>float.remove(),1600);
     const piece=document.getElementById('piece');
     piece.classList.remove('bouncing');void piece.offsetWidth;piece.classList.add('bouncing');
   }
@@ -368,6 +385,11 @@ async function submit(){
     document.getElementById('answer-input').value='';
     return;
   }
+  if(inp==='かいき'&&!(pos===0&&cleared)){
+    se('wrong');feedback('まだその時ではないようだ...','#5a3a10');
+    document.getElementById('answer-input').value='';
+    return;
+  }
   if(inp===sq.answer||(sq.isDummy&&inp.length>0)){
     if(!t0)t0=Date.now();
     const mc=inp.length,nt=total+mc;
@@ -377,6 +399,7 @@ async function submit(){
     await moveSteps(mc);
     total=nt;drawPath(pathArr.length-2);animateLastLine();
     if(pos===0&&nt>=20){
+      allFloat();
       const e=Date.now()-t0,m=Math.floor(e/60000),s=Math.floor((e%60000)/1000);
       document.getElementById('clear-img').src=IMGS[10];
       document.getElementById('clear-time').textContent='クリアタイム：'+m+'分'+s+'秒';
