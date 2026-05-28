@@ -295,13 +295,11 @@ function allFloat(){
       const board=document.getElementById('board');
       const float=document.createElement('div');
       float.textContent=SQ_CHAR[sq.id];
-      float.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:clamp(18px,6vmin,40px);font-weight:900;color:#8C1C13;pointer-events:none;z-index:50;opacity:1;transition:opacity 1.8s ease-out,transform 1.8s ease-out;`;
+      float.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:clamp(18px,6vmin,40px);font-weight:900;color:#8C1C13;pointer-events:none;z-index:50;opacity:1;transition:transform 1.8s ease-out;`;
       board.appendChild(float);
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        float.style.opacity='0';
-        float.style.transform=`translate(-50%,-280%)`;
+        float.style.transform=`translate(-50%,-220%)`;
       }));
-      setTimeout(()=>float.remove(),1900);
     },i*80);
   });
 }
