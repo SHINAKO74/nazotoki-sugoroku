@@ -280,28 +280,38 @@ function setRiddleImage(newSrc){
     img.src=newSrc;
     return;
   }
-  // 事前読み込みしておき、切替時の読み込み待ちによる遅延を防ぐ
-  const pre=new Image();pre.src=newSrc;
-  // 現在の画像を右へ縮小しながらスライドアウト
-  img.style.transition='transform .2s cubic-bezier(.4,0,.2,1), opacity .16s ease-in';
-  img.style.transform='translateX(130%) scale(0.3)';
-  img.style.opacity='0';
-  setTimeout(()=>{
-    // 新しい画像を左外・小さめに配置してから中央へ拡大しながらスライドイン
-    img.src=newSrc;
-    img.style.transition='none';
-    img.style.transform='translateX(-130%) scale(0.3)';
+  // 画像の読み込みが完了してからアニメーションを開始する(途中で切り替わるのを防ぐ)
+  const pre=new Image();
+  let started=false;
+  const startAnim=()=>{
+    if(started)return;
+    started=true;
+    // 現在の画像を右へ縮小しながらスライドアウト
+    img.style.transition='transform .2s cubic-bezier(.4,0,.2,1), opacity .16s ease-in';
+    img.style.transform='translateX(130%) scale(0.3)';
     img.style.opacity='0';
-    void img.offsetWidth;
-    img.style.transition='transform .2s cubic-bezier(.34,1.56,.64,1), opacity .16s ease-out';
-    img.style.transform='translateX(0) scale(1)';
-    img.style.opacity='1';
     setTimeout(()=>{
-      img.style.transition='';
-      img.style.transform='';
-      img.style.opacity='';
-    },210);
-  },200);
+      // 新しい画像(読み込み済み)を左外・小さめに配置してから中央へ拡大しながらスライドイン
+      img.src=newSrc;
+      img.style.transition='none';
+      img.style.transform='translateX(-130%) scale(0.3)';
+      img.style.opacity='0';
+      void img.offsetWidth;
+      img.style.transition='transform .2s cubic-bezier(.34,1.56,.64,1), opacity .16s ease-out';
+      img.style.transform='translateX(0) scale(1)';
+      img.style.opacity='1';
+      setTimeout(()=>{
+        img.style.transition='';
+        img.style.transform='';
+        img.style.opacity='';
+      },210);
+    },200);
+  };
+  pre.onload=startAnim;
+  pre.onerror=startAnim;
+  pre.src=newSrc;
+  if(pre.complete)startAnim();
+  else setTimeout(startAnim,500); // 万一読み込みイベントが来ない場合の保険
 }
 function repaint(){
   SQUARES.forEach(sq=>{
